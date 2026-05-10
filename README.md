@@ -15,3 +15,7 @@ User prompt → Claude API (claude-sonnet) → HCL files → GitHub branch → P
 ## Skills Demonstrated
 
 `Python` · `Claude API` · `Anthropic SDK` · `GitHub API` · `Terraform` · `AI automation`
+
+---
+
+> POC config — destroy when done, see [aws-eks-platform/COST.md](../aws-eks-platform/COST.md)
