@@ -18,6 +18,25 @@ from github import Github, GithubException
 
 
 # ─────────────────────────────────────────
+# Backend selection — Anthropic or Ollama
+# ─────────────────────────────────────────
+AI_BACKEND  = os.getenv("INFRA_AI_BACKEND", "anthropic")
+AI_MODEL    = os.getenv("INFRA_AI_MODEL", "claude-sonnet-4-5")
+AI_BASE_URL = os.getenv("INFRA_AI_BASE_URL", "")
+
+
+def _make_client() -> anthropic.Anthropic:
+    """Return an Anthropic-compatible client for the configured backend."""
+    if AI_BACKEND == "ollama":
+        # Anthropic SDK supports Ollama via base_url override
+        return anthropic.Anthropic(
+            api_key="ollama",  # required by SDK but unused by Ollama
+            base_url=AI_BASE_URL or "http://localhost:11434",
+        )
+    return anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+
+
+# ─────────────────────────────────────────
 # System prompt for Terraform generation
 # ─────────────────────────────────────────
 SYSTEM_PROMPT = """You are a senior AWS infrastructure engineer. Generate production-ready Terraform HCL.
@@ -41,13 +60,13 @@ RESPONSE FORMAT (strict JSON, no markdown):
 }"""
 
 
-def generate_terraform(prompt: str, model: str = "claude-sonnet-4-5") -> dict:
+def generate_terraform(prompt: str, model: str = None) -> dict:
     """
-    Call Claude API to generate Terraform HCL from a natural language prompt.
+    Call Claude API (or Ollama) to generate Terraform HCL from a natural language prompt.
 
     Args:
         prompt: Natural language description of infrastructure to create
-        model: Claude model to use (default: claude-sonnet-4-5)
+        model: Model to use — defaults to AI_MODEL env var (claude-sonnet-4-5)
 
     Returns:
         dict with keys: main_tf, variables_tf, outputs_tf
@@ -56,7 +75,8 @@ def generate_terraform(prompt: str, model: str = "claude-sonnet-4-5") -> dict:
         ValueError: If Claude response is not valid JSON with expected keys
         anthropic.APIError: On API communication errors
     """
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    model = model or AI_MODEL
+    client = _make_client()
 
     message = client.messages.create(
         model=model,

@@ -19,6 +19,24 @@ import anthropic
 
 
 # ─────────────────────────────────────────
+# Backend selection — Anthropic or Ollama
+# ─────────────────────────────────────────
+AI_BACKEND  = os.getenv("INFRA_AI_BACKEND", "anthropic")
+AI_MODEL    = os.getenv("INFRA_AI_MODEL", "claude-sonnet-4-5")
+AI_BASE_URL = os.getenv("INFRA_AI_BASE_URL", "")
+
+
+def _make_client() -> anthropic.Anthropic:
+    """Return an Anthropic-compatible client for the configured backend."""
+    if AI_BACKEND == "ollama":
+        return anthropic.Anthropic(
+            api_key="ollama",  # required by SDK but unused by Ollama
+            base_url=AI_BASE_URL or "http://localhost:11434",
+        )
+    return anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+
+
+# ─────────────────────────────────────────
 # System prompt for kubectl translation
 # ─────────────────────────────────────────
 KUBECTL_SYSTEM_PROMPT = (
@@ -64,10 +82,11 @@ def translate_to_kubectl(prompt: str, dry_run: bool = True) -> dict:
         ValueError: If Claude returns non-JSON or is missing required keys.
         anthropic.APIError: On API communication failures.
     """
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = _make_client()
+    model = AI_MODEL
 
     message = client.messages.create(
-        model="claude-sonnet-4-5",
+        model=model,
         max_tokens=2048,
         system=KUBECTL_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
