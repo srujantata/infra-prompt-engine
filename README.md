@@ -7,6 +7,26 @@
 
 Natural language → Terraform HCL → GitHub PR. Describe infrastructure in plain English; this engine calls the Claude API to generate valid Terraform and automatically opens a pull request for human review before anything is applied.
 
+## Project Vision
+
+This is Phase 1 of a fully autonomous DevOps AI platform. See [ROADMAP.md](ROADMAP.md) for the complete enhancement vision including self-healing, self-patching, live troubleshooting, and zero-human-ops target.
+
+**Current:** Prompt → Terraform/kubectl → deployed infra
+**Target:** Autonomous AI agent that monitors, heals, patches, and optimises your entire AWS/EKS estate with no manual intervention.
+
+## Local AI (Ollama — $0/month)
+
+Run all inference locally on your RTX 4090 — no API calls, no usage costs, fully private. See [LOCAL_AI_SETUP.md](LOCAL_AI_SETUP.md) for the complete step-by-step setup guide.
+
+**Quick switch:**
+```powershell
+[System.Environment]::SetEnvironmentVariable("INFRA_AI_BACKEND","ollama","User")
+[System.Environment]::SetEnvironmentVariable("INFRA_AI_MODEL","codellama:34b","User")
+[System.Environment]::SetEnvironmentVariable("INFRA_AI_BASE_URL","http://localhost:11434","User")
+```
+
+Recommended model: `codellama:34b` — fits in 24GB VRAM, ~25 tok/s, excellent at Terraform HCL and kubectl.
+
 ## How It Works
 
 ```
