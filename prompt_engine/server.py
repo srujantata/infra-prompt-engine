@@ -13,6 +13,7 @@ from pydantic import BaseModel
 import os
 
 from .generate import generate_terraform, open_pull_request
+from .kubectl_exec import run_kubectl_prompt
 
 app = FastAPI(
     title="Infra Prompt Engine",
@@ -72,6 +73,75 @@ def generate_dry_run(req: GenerateRequest):
     try:
         terraform_files = generate_terraform(req.prompt)
         return DryRunResponse(prompt=req.prompt, **terraform_files)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────
+# kubectl natural-language admin endpoints
+# ─────────────────────────────────────────
+
+class KubectlRequest(BaseModel):
+    prompt: str
+    execute: bool = False  # default safe — translate only, do not run
+
+
+class KubectlResponse(BaseModel):
+    commands: list[str]
+    explanation: str
+    risk: str
+    warning: str | None
+    results: list[dict] | None  # None when execute=False
+
+
+@app.post("/kubectl", response_model=KubectlResponse)
+def kubectl_admin(req: KubectlRequest):
+    """
+    Translate a plain-English Kubernetes admin request into kubectl commands
+    and optionally execute them against the live cluster.
+
+    Set execute=false (default) for safe translation-only mode.
+    Set execute=true to run the commands — high-risk operations (delete cluster,
+    destroy, delete node, drain without --dry-run) are always blocked.
+    """
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    try:
+        result = run_kubectl_prompt(req.prompt, execute=req.execute)
+        return KubectlResponse(
+            commands=result["commands"],
+            explanation=result["explanation"],
+            risk=result["risk"],
+            warning=result["warning"],
+            results=result.get("results"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/kubectl/dry-run", response_model=KubectlResponse)
+def kubectl_dry_run(req: KubectlRequest):
+    """
+    Translate a plain-English Kubernetes admin request into kubectl commands
+    without executing them — execute flag in request body is ignored.
+    """
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    try:
+        result = run_kubectl_prompt(req.prompt, execute=False)
+        return KubectlResponse(
+            commands=result["commands"],
+            explanation=result["explanation"],
+            risk=result["risk"],
+            warning=result["warning"],
+            results=None,
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
